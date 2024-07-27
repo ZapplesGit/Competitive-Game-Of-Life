@@ -10,10 +10,11 @@ class GameOfLife:
         self.canvas = tk.Canvas(master, width=width * cell_size, height=height * cell_size)
         self.canvas.pack()
         self.live_cells = {}
+        self.previous_states = set()
         self.canvas.bind("<Button-1>", self.toggle_cell)
         self.running = False
 
-        # Initialize grid with blue on the left and red on the right
+        # Initialize grid with balanced blue on the left and red on the right
         self.initialize_grid()
 
         # Adding control buttons
@@ -26,21 +27,41 @@ class GameOfLife:
         self.random_button = tk.Button(master, text="Randomize", command=self.randomize_grid)
         self.random_button.pack(side=tk.LEFT)
 
-        self.speed_scale = tk.Scale(master, from_=10, to=1000, orient=tk.HORIZONTAL, label="Speed (ms)")
+        self.speed_scale = tk.Scale(master, from_=1, to=1000, orient=tk.HORIZONTAL, label="Speed (ms)")
         self.speed_scale.set(100)
         self.speed_scale.pack(side=tk.RIGHT)
 
     def initialize_grid(self):
         self.live_cells = {}
+        half_width = self.width // 2
+        blue_cells = set()
+        red_cells = set()
         for y in range(self.height):
             for x in range(self.width):
-                if x < self.width // 2:
+                if x < half_width:
                     if random.choice([0, 1]) == 1:
-                        self.live_cells[(x, y)] = "blue"
+                        blue_cells.add((x, y))
                 else:
                     if random.choice([0, 1]) == 1:
-                        self.live_cells[(x, y)] = "red"
+                        red_cells.add((x, y))
+
+        # Balance the number of cells if needed
+        while len(blue_cells) > len(red_cells):
+            blue_cells.pop()
+        while len(red_cells) > len(blue_cells):
+            red_cells.pop()
+
+        for x, y in blue_cells:
+            self.live_cells[(x, y)] = "blue"
+        for x, y in red_cells:
+            self.live_cells[(x, y)] = "red"
+
+        self.previous_states = set()
+        self.previous_states.add(self.hash_grid())
         self.draw_grid()
+
+    def hash_grid(self):
+        return frozenset(self.live_cells.items())
 
     def draw_grid(self):
         self.canvas.delete("all")
@@ -79,13 +100,42 @@ class GameOfLife:
             if data["count"] == 3 or (data["count"] == 2 and cell in self.live_cells):
                 if data["blue"] > data["red"]:
                     new_live_cells[cell] = "blue"
-                else:
+                elif data["red"] > data["blue"]:
                     new_live_cells[cell] = "red"
+                else:
+                    new_live_cells[cell] = random.choice(["blue", "red"])  # Randomly choose if tied
+
+        # Check if the new state is a recurrence or if nothing changed
+        new_state_hash = frozenset(new_live_cells.items())
+        if new_state_hash in self.previous_states:
+            self.running = False
+            print("Infinite loop detected. Simulation stopped.")
+            self.display_winner()
+            return
+
+        if new_state_hash == self.hash_grid():
+            self.running = False
+            print("No changes detected. Simulation stopped.")
+            self.display_winner()
+            return
 
         self.live_cells = new_live_cells
+        self.previous_states.add(new_state_hash)
         self.draw_grid()
+
         if self.running:
             self.master.after(self.speed_scale.get(), self.update)
+
+    def display_winner(self):
+        blue_count = sum(1 for color in self.live_cells.values() if color == "blue")
+        red_count = sum(1 for color in self.live_cells.values() if color == "red")
+        if blue_count > red_count:
+            winner = "Blue wins!"
+        elif red_count > blue_count:
+            winner = "Red wins!"
+        else:
+            winner = "It's a tie!"
+        print(f"Blue: {blue_count}, Red: {red_count}. {winner}")
 
     def start_stop(self):
         self.running = not self.running
@@ -95,6 +145,7 @@ class GameOfLife:
     def clear_grid(self):
         self.running = False
         self.live_cells = {}
+        self.previous_states = set()
         self.draw_grid()
 
     def randomize_grid(self):
@@ -107,6 +158,8 @@ class GameOfLife:
             del self.live_cells[(x, y)]
         else:
             self.live_cells[(x, y)] = "blue" if x < self.width // 2 else "red"
+        self.previous_states = set()
+        self.previous_states.add(self.hash_grid())
         self.draw_grid()
 
 def main():
