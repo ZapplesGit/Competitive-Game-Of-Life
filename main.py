@@ -1,3 +1,4 @@
+import customtkinter as ctk
 import tkinter as tk
 import random
 
@@ -7,39 +8,44 @@ class GameOfLife:
         self.width = width
         self.height = height
         self.cell_size = cell_size
+
+        # Create the canvas
         self.canvas = tk.Canvas(master, width=width * cell_size, height=height * cell_size)
-        self.canvas.pack()
+        self.canvas.pack(pady=20)
+
         self.live_cells = {}
-        self.purple_life_count = {}  # To track consecutive generations of purple cells
-        self.previous_states = set()
+
+        # Bind events to canvas
         self.canvas.bind("<Button-1>", self.toggle_cell)
         self.canvas.bind("<Button-3>", self.place_glider)  # Right-click to place glider
+
         self.running = False
 
-        # Initialize grid with balanced blue on the left and red on the right
-        self.initialize_grid()
+        # Adding control buttons with CustomTkinter
+        self.start_stop_button = ctk.CTkButton(master, text="Start/Stop", command=self.start_stop)
+        self.start_stop_button.pack(side=ctk.LEFT, padx=10, pady=10)
 
-        # Adding control buttons
-        self.start_stop_button = tk.Button(master, text="Start/Stop", command=self.start_stop)
-        self.start_stop_button.pack(side=tk.LEFT)
+        self.clear_button = ctk.CTkButton(master, text="Clear", command=self.clear_grid)
+        self.clear_button.pack(side=ctk.LEFT, padx=10, pady=10)
 
-        self.clear_button = tk.Button(master, text="Clear", command=self.clear_grid)
-        self.clear_button.pack(side=tk.LEFT)
+        self.random_button = ctk.CTkButton(master, text="Randomize", command=self.randomize_grid)
+        self.random_button.pack(side=ctk.LEFT, padx=10, pady=10)
 
-        self.random_button = tk.Button(master, text="Randomize", command=self.randomize_grid)
-        self.random_button.pack(side=tk.LEFT)
-
-        self.speed_scale = tk.Scale(master, from_=1, to=1000, orient=tk.HORIZONTAL, label="Speed")
+        self.speed_scale = ctk.CTkSlider(master, from_=1, to=1000, orientation=ctk.HORIZONTAL, number_of_steps=999)
         self.speed_scale.set(1000)
-        self.speed_scale.pack(side=tk.RIGHT)
+        self.speed_scale.pack(side=ctk.RIGHT, padx=10, pady=10)
+        self.speed_scale_label = ctk.CTkLabel(master, text="Speed")
+        self.speed_scale_label.pack(side=ctk.RIGHT, padx=10, pady=10)
 
-        self.bot_scale = tk.Scale(master, from_=1, to=100, orient=tk.HORIZONTAL, label="Purple spreading")
-        self.bot_scale.set(3)
-        self.bot_scale.pack(side=tk.RIGHT)
+        # Initialize live counter
+        self.live_counter = ctk.CTkLabel(master, text="Live Count: Blue: 0, Red: 0", text_color="black")
+        self.live_counter.pack(side=ctk.BOTTOM, pady=10)
+
+        # Initialize grid
+        self.initialize_grid()
 
     def initialize_grid(self):
         self.live_cells = {}
-        self.purple_life_count = {}
         half_width = self.width // 2
         blue_cells = set()
         red_cells = set()
@@ -66,6 +72,7 @@ class GameOfLife:
         self.previous_states = set()
         self.previous_states.add(self.hash_grid())
         self.draw_grid()
+        self.update_live_counter()
 
     def hash_grid(self):
         return frozenset(self.live_cells.items())
@@ -96,41 +103,26 @@ class GameOfLife:
                         continue
                     nx, ny = (x + dx) % self.width, (y + dy) % self.height
                     if (nx, ny) not in neighbor_counts:
-                        neighbor_counts[(nx, ny)] = {"count": 0, "blue": 0, "red": 0, "purple": 0}
+                        neighbor_counts[(nx, ny)] = {"count": 0, "blue": 0, "red": 0}
                     neighbor_counts[(nx, ny)]["count"] += 1
-                    if self.live_cells[(x, y)] == "blue":
+                    if self.live_cells.get((x, y)) == "blue":
                         neighbor_counts[(nx, ny)]["blue"] += 1
-                    elif self.live_cells[(x, y)] == "red":
+                    elif self.live_cells.get((x, y)) == "red":
                         neighbor_counts[(nx, ny)]["red"] += 1
-                    else:  # purple cell
-                        neighbor_counts[(nx, ny)]["purple"] += 1
 
         for (cell, data) in neighbor_counts.items():
             if data["count"] == 3 or (data["count"] == 2 and cell in self.live_cells):
-                if data["blue"] > data["red"] and data["blue"] > data["purple"]:
+                if data["blue"] > data["red"]:
                     new_live_cells[cell] = "blue"
-                elif data["red"] > data["blue"] and data["red"] > data["purple"]:
+                elif data["red"] > data["blue"]:
                     new_live_cells[cell] = "red"
-                elif data["purple"] > data["blue"] and data["purple"] > data["red"]:
-                    new_live_cells[cell] = "purple"
                 else:
-                    new_live_cells[cell] = "purple"  # Default to purple in case of a tie
-
-        # Update purple life count and remove purple cells that have been purple for certain num of generations
-        for cell in list(new_live_cells):
-            if new_live_cells[cell] == "purple":
-                if cell in self.purple_life_count:
-                    self.purple_life_count[cell] += 1
-                    if self.purple_life_count[cell] >= self.bot_scale.get():
-                        del new_live_cells[cell]
-                        del self.purple_life_count[cell]
-                else:
-                    self.purple_life_count[cell] = 1
-            elif cell in self.purple_life_count:
-                del self.purple_life_count[cell]
+                    new_live_cells[cell] = self.live_cells.get(cell, "blue")  # Default to existing color
+            else:
+                new_live_cells[cell] = None  # Cell dies
 
         # Check if the new state is a recurrence or if nothing changed
-        new_state_hash = frozenset(new_live_cells.items())
+        new_state_hash = frozenset((cell, color) for cell, color in new_live_cells.items() if color is not None)
         if new_state_hash in self.previous_states:
             self.running = False
             print("Infinite loop detected. Simulation stopped.")
@@ -143,28 +135,31 @@ class GameOfLife:
             self.display_winner()
             return
 
-        self.live_cells = new_live_cells
+        self.live_cells = {cell: color for cell, color in new_live_cells.items() if color is not None}
         self.previous_states.add(new_state_hash)
         self.draw_grid()
+        self.update_live_counter()
 
-        inverted_speed = 1001 - self.speed_scale.get()
+        inverted_speed = int(1001 - self.speed_scale.get())  # Ensure inverted_speed is an integer
 
         if self.running:
             self.master.after(inverted_speed, self.update)
 
+    def update_live_counter(self):
+        blue_count = sum(1 for color in self.live_cells.values() if color == "blue")
+        red_count = sum(1 for color in self.live_cells.values() if color == "red")
+        self.live_counter.configure(text=f"Live Count: Blue: {blue_count}, Red: {red_count}")
+
     def display_winner(self):
         blue_count = sum(1 for color in self.live_cells.values() if color == "blue")
         red_count = sum(1 for color in self.live_cells.values() if color == "red")
-        purple_count = sum(1 for color in self.live_cells.values() if color == "purple")
-        if blue_count > red_count and blue_count > purple_count:
+        if blue_count > red_count:
             winner = "Blue wins!"
-        elif red_count > blue_count and red_count > purple_count:
+        elif red_count > blue_count:
             winner = "Red wins!"
-        elif purple_count > blue_count and purple_count > red_count:
-            winner = "purple wins!"
         else:
             winner = "It's a tie!"
-        print(f"Blue: {blue_count}, Red: {red_count}, purple: {purple_count}. {winner}")
+        print(f"Blue: {blue_count}, Red: {red_count}. {winner}")
 
     def start_stop(self):
         self.running = not self.running
@@ -174,9 +169,9 @@ class GameOfLife:
     def clear_grid(self):
         self.running = False
         self.live_cells = {}
-        self.purple_life_count = {}
         self.previous_states = set()
         self.draw_grid()
+        self.update_live_counter()
 
     def randomize_grid(self):
         self.initialize_grid()
@@ -191,13 +186,13 @@ class GameOfLife:
         self.previous_states = set()
         self.previous_states.add(self.hash_grid())
         self.draw_grid()
+        self.update_live_counter()
 
     def place_glider(self, event):
         x = event.x // self.cell_size
         y = event.y // self.cell_size
 
         glider_pattern = [(0, 1), (1, 2), (2, 0), (2, 1), (2, 2)] if x < self.width // 2 else [(2, 1), (1, 2), (0, 0), (0, 1), (0, 2)]
-
 
         for dx, dy in glider_pattern:
             new_x, new_y = (x + dx) % self.width, (y + dy) % self.height
@@ -206,9 +201,13 @@ class GameOfLife:
         self.previous_states = set()
         self.previous_states.add(self.hash_grid())
         self.draw_grid()
+        self.update_live_counter()
 
 def main():
-    root = tk.Tk()
+    ctk.set_appearance_mode("System")  # Modes: "System" (default), "Dark", "Light"
+    ctk.set_default_color_theme("blue")  # Themes: "blue" (default), "green", "dark-blue"
+
+    root = ctk.CTk()
     root.title("Conway's Game of Life")
     game = GameOfLife(root, width=96, height=54)
     root.mainloop()
