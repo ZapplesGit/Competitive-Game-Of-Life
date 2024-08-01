@@ -1,6 +1,8 @@
 import customtkinter as ctk
 import tkinter as tk
 import random
+from patterns import patterns  # Import patterns from patterns.py
+
 
 class GameOfLife:
     def __init__(self, master, width, height, cell_size=10):
@@ -8,6 +10,7 @@ class GameOfLife:
         self.width = width
         self.height = height
         self.cell_size = cell_size
+        self.selected_pattern = "Glider"  # Default pattern
 
         # Create the canvas
         self.canvas = tk.Canvas(master, width=width * cell_size, height=height * cell_size)
@@ -17,7 +20,8 @@ class GameOfLife:
 
         # Bind events to canvas
         self.canvas.bind("<Button-1>", self.toggle_cell)
-        self.canvas.bind("<Button-3>", self.place_glider)  # Right-click to place glider
+        self.canvas.bind("<B1-Motion>", self.paint_cell)
+        self.canvas.bind("<Button-3>", self.place_pattern)  # Right-click to place pattern
 
         self.running = False
 
@@ -44,6 +48,14 @@ class GameOfLife:
         # Initialize grid
         self.initialize_grid()
 
+        # Add a menu for pattern selection
+        self.menu_bar = tk.Menu(master)
+        self.pattern_menu = tk.Menu(self.menu_bar, tearoff=0)
+        for pattern_name in patterns.keys():
+            self.pattern_menu.add_command(label=pattern_name, command=lambda p=pattern_name: self.select_pattern(p))
+        self.menu_bar.add_cascade(label="Patterns", menu=self.pattern_menu)
+        master.config(menu=self.menu_bar)
+
     def initialize_grid(self):
         self.live_cells = {}
         half_width = self.width // 2
@@ -58,7 +70,7 @@ class GameOfLife:
                     if random.choice([0, 1]) == 1:
                         red_cells.add((x, y))
 
-        # Balance the number of cells if needed
+        # Balance the number of cells when randomized
         while len(blue_cells) > len(red_cells):
             blue_cells.pop()
         while len(red_cells) > len(blue_cells):
@@ -140,7 +152,7 @@ class GameOfLife:
         self.draw_grid()
         self.update_live_counter()
 
-        inverted_speed = int(1001 - self.speed_scale.get())  # Ensure inverted_speed is an integer
+        inverted_speed = int(1001 - self.speed_scale.get())  # Inverts the speed slider
 
         if self.running:
             self.master.after(inverted_speed, self.update)
@@ -150,6 +162,7 @@ class GameOfLife:
         red_count = sum(1 for color in self.live_cells.values() if color == "red")
         self.live_counter.configure(text=f"Live Count: Blue: {blue_count}, Red: {red_count}")
 
+    # Displays the winner in console
     def display_winner(self):
         blue_count = sum(1 for color in self.live_cells.values() if color == "blue")
         red_count = sum(1 for color in self.live_cells.values() if color == "red")
@@ -188,13 +201,21 @@ class GameOfLife:
         self.draw_grid()
         self.update_live_counter()
 
-    def place_glider(self, event):
+    def paint_cell(self, event):
         x = event.x // self.cell_size
         y = event.y // self.cell_size
+        self.live_cells[(x, y)] = "blue" if x < self.width // 2 else "red"
+        self.previous_states = set()
+        self.previous_states.add(self.hash_grid())
+        self.draw_grid()
+        self.update_live_counter()
 
-        glider_pattern = [(0, 1), (1, 2), (2, 0), (2, 1), (2, 2)] if x < self.width // 2 else [(2, 1), (1, 2), (0, 0), (0, 1), (0, 2)]
+    def place_pattern(self, event):
+        x = event.x // self.cell_size
+        y = event.y // self.cell_size
+        pattern = patterns[self.selected_pattern]
 
-        for dx, dy in glider_pattern:
+        for dx, dy in pattern:
             new_x, new_y = (x + dx) % self.width, (y + dy) % self.height
             self.live_cells[(new_x, new_y)] = "blue" if x < self.width // 2 else "red"
 
@@ -203,14 +224,18 @@ class GameOfLife:
         self.draw_grid()
         self.update_live_counter()
 
+    def select_pattern(self, pattern_name):
+        self.selected_pattern = pattern_name
+
+
 def main():
     ctk.set_appearance_mode("System")  # Modes: "System" (default), "Dark", "Light"
     ctk.set_default_color_theme("blue")  # Themes: "blue" (default), "green", "dark-blue"
 
     root = ctk.CTk()
-    root.title("Conway's Game of Life")
-    game = GameOfLife(root, width=96, height=54)
+    root.title("Competitive Game of Life")
+    game = GameOfLife(root, width=96, height=54)  # Size of grid
     root.mainloop()
 
-if __name__ == "__main__":
-    main()
+
+main()
