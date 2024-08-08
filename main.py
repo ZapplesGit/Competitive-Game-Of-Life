@@ -3,18 +3,20 @@ import tkinter as tk
 import random
 from patterns import patterns  # Import patterns from patterns.py
 
-
 class GameOfLife:
     def __init__(self, master, width, height, cell_size=10):
+        self.previous_states = None
         self.master = master
         self.width = width
         self.height = height
         self.cell_size = cell_size
-        self.selected_pattern = "Glider"  # Default pattern
+        self.selected_pattern = "LWSS"  # Default pattern
+        self.generation_count = 0
 
         # Create the canvas
         self.canvas = tk.Canvas(master, width=width * cell_size, height=height * cell_size)
         self.canvas.pack(pady=20)
+        self.canvas.config(width=width * cell_size, height=height * cell_size)
 
         self.live_cells = {}
 
@@ -22,6 +24,7 @@ class GameOfLife:
         self.canvas.bind("<Button-1>", self.toggle_cell)
         self.canvas.bind("<B1-Motion>", self.paint_cell)
         self.canvas.bind("<Button-3>", self.place_pattern)  # Right-click to place pattern
+        self.master.bind("<space>", lambda event: self.start_stop())  # Space bar to start/stop
 
         self.running = False
 
@@ -83,6 +86,7 @@ class GameOfLife:
 
         self.previous_states = set()
         self.previous_states.add(self.hash_grid())
+        self.generation_count = 0
         self.draw_grid()
         self.update_live_counter()
 
@@ -103,6 +107,14 @@ class GameOfLife:
             self.canvas.create_line(x, 0, x, self.height * self.cell_size, fill="lightgray")
         for y in range(0, self.height * self.cell_size, self.cell_size):
             self.canvas.create_line(0, y, self.width * self.cell_size, y, fill="lightgray")
+
+        # Draw the middle line when the simulation is not running
+        if not self.running:
+            middle_x = (self.width // 2) * self.cell_size
+            self.canvas.create_line(
+                middle_x, 0, middle_x, self.height * self.cell_size,
+                fill="black", width=2  # Thicker black line
+            )
 
     def update(self):
         new_live_cells = {}
@@ -149,6 +161,7 @@ class GameOfLife:
 
         self.live_cells = {cell: color for cell, color in new_live_cells.items() if color is not None}
         self.previous_states.add(new_state_hash)
+        self.generation_count += 1
         self.draw_grid()
         self.update_live_counter()
 
@@ -162,8 +175,11 @@ class GameOfLife:
         red_count = sum(1 for color in self.live_cells.values() if color == "red")
         self.live_counter.configure(text=f"Live Count: Blue: {blue_count}, Red: {red_count}")
 
-    # Displays the winner in console
+    # Displays the winner in console and calls the splash screen if conditions are met
     def display_winner(self):
+        if self.generation_count <= 1:
+            return
+
         blue_count = sum(1 for color in self.live_cells.values() if color == "blue")
         red_count = sum(1 for color in self.live_cells.values() if color == "red")
         if blue_count > red_count:
@@ -173,6 +189,29 @@ class GameOfLife:
         else:
             winner = "It's a tie!"
         print(f"Blue: {blue_count}, Red: {red_count}. {winner}")
+        self.show_winner_splash(winner)
+
+    # Shows the splash screen with the winner announcement
+    def show_winner_splash(self, winner_message):
+        splash = tk.Toplevel(self.master)
+        splash.title("Winner Announcement")
+        splash.geometry("300x200")
+        splash.resizable(False, False)
+
+        # Center the splash screen
+        screen_width = self.master.winfo_screenwidth()
+        screen_height = self.master.winfo_screenheight()
+        x_cordinate = int((screen_width / 2) - (300 / 2))
+        y_cordinate = int((screen_height / 2) - (200 / 2))
+        splash.geometry(f"+{x_cordinate}+{y_cordinate}")
+
+        message = ctk.CTkLabel(splash, text=winner_message, text_color="black")
+        message.pack(expand=True)
+
+        ok_button = ctk.CTkButton(splash, text="OK", command=splash.destroy)
+        ok_button.pack(pady=10)
+
+        splash.grab_set()  # Ensure the user interacts with this window first
 
     def start_stop(self):
         self.running = not self.running
@@ -183,6 +222,7 @@ class GameOfLife:
         self.running = False
         self.live_cells = {}
         self.previous_states = set()
+        self.generation_count = 0
         self.draw_grid()
         self.update_live_counter()
 
@@ -198,6 +238,7 @@ class GameOfLife:
             self.live_cells[(x, y)] = "blue" if x < self.width // 2 else "red"
         self.previous_states = set()
         self.previous_states.add(self.hash_grid())
+        self.generation_count = 0
         self.draw_grid()
         self.update_live_counter()
 
@@ -207,6 +248,7 @@ class GameOfLife:
         self.live_cells[(x, y)] = "blue" if x < self.width // 2 else "red"
         self.previous_states = set()
         self.previous_states.add(self.hash_grid())
+        self.generation_count = 0
         self.draw_grid()
         self.update_live_counter()
 
@@ -215,12 +257,20 @@ class GameOfLife:
         y = event.y // self.cell_size
         pattern = patterns[self.selected_pattern]
 
+        # Check if the pattern should be inverted (on the right-hand side)
+        half_width = self.width // 2
+        if x >= half_width:
+            max_x = max(dx for dx, dy in pattern)
+            inverted_pattern = [(max_x - dx, dy) for dx, dy in pattern]
+            pattern = inverted_pattern
+
         for dx, dy in pattern:
             new_x, new_y = (x + dx) % self.width, (y + dy) % self.height
             self.live_cells[(new_x, new_y)] = "blue" if x < self.width // 2 else "red"
 
         self.previous_states = set()
         self.previous_states.add(self.hash_grid())
+        self.generation_count = 0
         self.draw_grid()
         self.update_live_counter()
 
@@ -234,8 +284,7 @@ def main():
 
     root = ctk.CTk()
     root.title("Competitive Game of Life")
-    game = GameOfLife(root, width=96, height=54)  # Size of grid
+    GameOfLife(root, width=96, height=54)
     root.mainloop()
-
 
 main()
