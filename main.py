@@ -3,8 +3,9 @@ import tkinter as tk
 import random
 from patterns import patterns  # Import patterns from patterns.py
 
+
 class GameOfLife:
-    def __init__(self, master, width, height, cell_size=10):
+    def __init__(self, master, width, height, cell_size=11):
         self.previous_states = None
         self.master = master
         self.width = width
@@ -38,15 +39,18 @@ class GameOfLife:
         self.random_button = ctk.CTkButton(master, text="Randomize", command=self.randomize_grid)
         self.random_button.pack(side=ctk.LEFT, padx=10, pady=10)
 
+        self.counter_frame = ctk.CTkFrame(master, width=220, height=30)
+        self.counter_frame.pack_propagate(False)
+        self.counter_frame.pack(side=ctk.LEFT, pady=10)
+
+        self.live_counter = ctk.CTkLabel(self.counter_frame, text="Live Count: Blue: 0, Red: 0", text_color="black")
+        self.live_counter.pack()
+
         self.speed_scale = ctk.CTkSlider(master, from_=1, to=1000, orientation=ctk.HORIZONTAL, number_of_steps=999)
         self.speed_scale.set(1000)
         self.speed_scale.pack(side=ctk.RIGHT, padx=10, pady=10)
         self.speed_scale_label = ctk.CTkLabel(master, text="Speed")
         self.speed_scale_label.pack(side=ctk.RIGHT, padx=10, pady=10)
-
-        # Initialize live counter
-        self.live_counter = ctk.CTkLabel(master, text="Live Count: Blue: 0, Red: 0", text_color="black")
-        self.live_counter.pack(side=ctk.BOTTOM, pady=10)
 
         # Initialize grid
         self.initialize_grid()
@@ -58,6 +62,48 @@ class GameOfLife:
             self.pattern_menu.add_command(label=pattern_name, command=lambda p=pattern_name: self.select_pattern(p))
         self.menu_bar.add_cascade(label="Patterns", menu=self.pattern_menu)
         master.config(menu=self.menu_bar)
+
+        # Show the information screen on startup
+        self.show_info_screen()
+
+    def show_info_screen(self):
+        info_screen = tk.Toplevel(self.master)
+        info_screen.title("Welcome to Competitive Game of Life")
+        info_screen.geometry("530x450")
+        info_screen.resizable(False, False)
+
+        # Center the info screen
+        screen_width = self.master.winfo_screenwidth()
+        screen_height = self.master.winfo_screenheight()
+        x_coordinate = int((screen_width / 2) - (450 / 2))
+        y_coordinate = int((screen_height / 2) - (350 / 2))
+        info_screen.geometry(f"+{x_coordinate}+{y_coordinate}")
+
+        instructions = """
+Welcome to the Competitive Game of Life!
+
+How to play:
+- Left-click: Toggle a cell's state.
+- Drag left-click: Paint cells.
+- Right-click: Place a selected pattern.
+- Space bar: Start/Stop the simulation.
+
+Objective:
+- Compete to dominate the board with your color.
+- The game ends when a stable state is reached or an infinite loop is detected.
+
+Good luck!
+        """
+
+        label = ctk.CTkLabel(info_screen, text=instructions, text_color="black", wraplength=420)
+        label.pack(expand=True, padx=20, pady=20)
+
+        close_button = ctk.CTkButton(info_screen, text="Start", command=info_screen.destroy)
+        close_button.pack(pady=10)
+
+        info_screen.lift(self.master)  # Bring the info screen to the front
+        info_screen.focus_set()  # Ensure the info screen receives focus
+        info_screen.grab_set()  # Ensure the user interacts with this window first
 
     def initialize_grid(self):
         self.live_cells = {}
@@ -201,9 +247,9 @@ class GameOfLife:
         # Center the splash screen
         screen_width = self.master.winfo_screenwidth()
         screen_height = self.master.winfo_screenheight()
-        x_cordinate = int((screen_width / 2) - (300 / 2))
-        y_cordinate = int((screen_height / 2) - (200 / 2))
-        splash.geometry(f"+{x_cordinate}+{y_cordinate}")
+        x_coordinate = int((screen_width / 2) - (300 / 2))
+        y_coordinate = int((screen_height / 2) - (200 / 2))
+        splash.geometry(f"+{x_coordinate}+{y_coordinate}")
 
         message = ctk.CTkLabel(splash, text=winner_message, text_color="black")
         message.pack(expand=True)
@@ -286,5 +332,6 @@ def main():
     root.title("Competitive Game of Life")
     GameOfLife(root, width=96, height=54)
     root.mainloop()
+
 
 main()
