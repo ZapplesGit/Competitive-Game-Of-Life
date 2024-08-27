@@ -221,6 +221,11 @@ Good luck!
         red_count = sum(1 for color in self.live_cells.values() if color == "red")
         self.live_counter.configure(text=f"Live Count: Blue: {blue_count}, Red: {red_count}")
 
+        # Check if either team has zero cells
+        if blue_count == 0 or red_count == 0:
+            self.running = False
+            self.display_winner()
+
     # Displays the winner in console and calls the splash screen if conditions are met
     def display_winner(self):
         if self.generation_count <= 1:
@@ -228,12 +233,19 @@ Good luck!
 
         blue_count = sum(1 for color in self.live_cells.values() if color == "blue")
         red_count = sum(1 for color in self.live_cells.values() if color == "red")
-        if blue_count > red_count:
+
+        # Determine the winner
+        if blue_count == 0:
+            winner = "Red wins!"
+        elif red_count == 0:
+            winner = "Blue wins!"
+        elif blue_count > red_count:
             winner = "Blue wins!"
         elif red_count > blue_count:
             winner = "Red wins!"
         else:
             winner = "It's a tie!"
+
         print(f"Blue: {blue_count}, Red: {red_count}. {winner}")
         self.show_winner_splash(winner)
 
@@ -254,7 +266,8 @@ Good luck!
         message = ctk.CTkLabel(splash, text=winner_message, text_color="black")
         message.pack(expand=True)
 
-        ok_button = ctk.CTkButton(splash, text="OK", command=splash.destroy)
+        # Modified 'OK' button to show the info screen after closing the splash
+        ok_button = ctk.CTkButton(splash, text="OK", command=lambda: [splash.destroy(), self.show_info_screen()])
         ok_button.pack(pady=10)
 
         splash.grab_set()  # Ensure the user interacts with this window first
