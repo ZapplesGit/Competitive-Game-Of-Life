@@ -15,7 +15,6 @@ class GameOfLife:
         self.generation_count = 0
         self.current_theme = "Light"  # Track the current theme
 
-
         # Create the canvas
         self.canvas = tk.Canvas(master, width=width * cell_size, height=height * cell_size, bg="white")
         self.canvas.pack(pady=20)
@@ -379,5 +378,6 @@ def main():
 
     GameOfLife(root, width=96, height=54)
     root.mainloop()
+
 
 main()
