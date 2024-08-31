@@ -11,7 +11,7 @@ class GameOfLife:
         self.width = width
         self.height = height
         self.cell_size = cell_size
-        self.selected_pattern = "LWSS"  # Default pattern
+        self.selected_pattern = "Spaceship"  # Default pattern
         self.generation_count = 0
         self.current_theme = "Light"  # Track the current theme
 
@@ -40,7 +40,7 @@ class GameOfLife:
         self.random_button = ctk.CTkButton(master, text="Randomize", command=self.randomize_grid)
         self.random_button.pack(side=ctk.LEFT, padx=10, pady=10)
 
-        self.counter_frame = ctk.CTkFrame(master, width=220, height=30, fg_color="white")  # Set initial color
+        self.counter_frame = ctk.CTkFrame(master, width=220, height=30, fg_color="lightgray")  # Set initial color
         self.counter_frame.pack_propagate(False)
         self.counter_frame.pack(side=ctk.LEFT, pady=10)
 
@@ -87,7 +87,7 @@ class GameOfLife:
             self.current_theme = "Light"
             self.canvas.configure(bg="white")  # Set the grid background to white
             self.menu_bar.configure(bg="white", fg="black")  # Set the menu background to white
-            self.counter_frame.configure(fg_color="white")  # Set the counter frame background to white
+            self.counter_frame.configure(fg_color="lightgray")  # Set the counter frame background to white
             self.live_counter.configure(text_color="black")  # Set the text color to black
 
     def show_info_screen(self):
@@ -374,7 +374,7 @@ def main():
     # Option to toggle fullscreen mode using F11
     root.bind("<F11>", lambda event: root.attributes("-fullscreen", not root.attributes("-fullscreen")))
 
-    root.state('zoomed')
+    root.after(0, lambda: root.state('zoomed'))
 
     GameOfLife(root, width=96, height=54)
     root.mainloop()
