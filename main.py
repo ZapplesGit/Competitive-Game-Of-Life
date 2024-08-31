@@ -5,7 +5,7 @@ from patterns import patterns  # Import patterns from patterns.py
 
 
 class GameOfLife:
-    def __init__(self, master, width, height, cell_size=11):
+    def __init__(self, master, width, height, cell_size=16):
         self.previous_states = None
         self.master = master
         self.width = width
@@ -13,11 +13,13 @@ class GameOfLife:
         self.cell_size = cell_size
         self.selected_pattern = "LWSS"  # Default pattern
         self.generation_count = 0
+        self.current_theme = "Light"  # Track the current theme
+
 
         # Create the canvas
-        self.canvas = tk.Canvas(master, width=width * cell_size, height=height * cell_size)
+        self.canvas = tk.Canvas(master, width=width * cell_size, height=height * cell_size, bg="white")
         self.canvas.pack(pady=20)
-        self.canvas.config(width=width * cell_size, height=height * cell_size)
+        self.canvas.configure(width=width * cell_size, height=height * cell_size)
 
         self.live_cells = {}
 
@@ -31,7 +33,7 @@ class GameOfLife:
 
         # Adding control buttons with CustomTkinter
         self.start_stop_button = ctk.CTkButton(master, text="Start/Stop", command=self.start_stop)
-        self.start_stop_button.pack(side=ctk.LEFT, padx=10, pady=10)
+        self.start_stop_button.pack(side=ctk.LEFT, padx=50, pady=10)
 
         self.clear_button = ctk.CTkButton(master, text="Clear", command=self.clear_grid)
         self.clear_button.pack(side=ctk.LEFT, padx=10, pady=10)
@@ -39,7 +41,7 @@ class GameOfLife:
         self.random_button = ctk.CTkButton(master, text="Randomize", command=self.randomize_grid)
         self.random_button.pack(side=ctk.LEFT, padx=10, pady=10)
 
-        self.counter_frame = ctk.CTkFrame(master, width=220, height=30)
+        self.counter_frame = ctk.CTkFrame(master, width=220, height=30, fg_color="white")  # Set initial color
         self.counter_frame.pack_propagate(False)
         self.counter_frame.pack(side=ctk.LEFT, pady=10)
 
@@ -48,23 +50,46 @@ class GameOfLife:
 
         self.speed_scale = ctk.CTkSlider(master, from_=1, to=1000, orientation=ctk.HORIZONTAL, number_of_steps=999)
         self.speed_scale.set(1000)
-        self.speed_scale.pack(side=ctk.RIGHT, padx=10, pady=10)
+        self.speed_scale.pack(side=ctk.RIGHT, padx=50, pady=10)
         self.speed_scale_label = ctk.CTkLabel(master, text="Speed")
         self.speed_scale_label.pack(side=ctk.RIGHT, padx=10, pady=10)
 
         # Initialize grid
         self.initialize_grid()
 
-        # Add a menu for pattern selection
-        self.menu_bar = tk.Menu(master)
+        # Add a menu for pattern selection and settings
+        self.menu_bar = tk.Menu(master, bg="white")  # Set initial menu bar color
         self.pattern_menu = tk.Menu(self.menu_bar, tearoff=0)
         for pattern_name in patterns.keys():
             self.pattern_menu.add_command(label=pattern_name, command=lambda p=pattern_name: self.select_pattern(p))
         self.menu_bar.add_cascade(label="Patterns", menu=self.pattern_menu)
-        master.config(menu=self.menu_bar)
+
+        # Settings menu
+        self.settings_menu = tk.Menu(self.menu_bar, tearoff=0)
+        self.settings_menu.add_command(label="Toggle Theme", command=self.toggle_theme)
+        self.menu_bar.add_cascade(label="Settings", menu=self.settings_menu)
+
+        master.configure(menu=self.menu_bar)
 
         # Show the information screen on startup
         self.show_info_screen()
+
+    # Toggle theme between Light and Dark
+    def toggle_theme(self):
+        if self.current_theme == "Light":
+            ctk.set_appearance_mode("Dark")
+            self.current_theme = "Dark"
+            self.canvas.configure(bg="gray")  # Set the grid background to gray
+            self.menu_bar.configure(bg="black", fg="black")  # Set the menu background to black
+            self.counter_frame.configure(fg_color="black")  # Set the counter frame background to black
+            self.live_counter.configure(text_color="white")  # Set the text color to white
+        else:
+            ctk.set_appearance_mode("Light")
+            self.current_theme = "Light"
+            self.canvas.configure(bg="white")  # Set the grid background to white
+            self.menu_bar.configure(bg="white", fg="black")  # Set the menu background to white
+            self.counter_frame.configure(fg_color="white")  # Set the counter frame background to white
+            self.live_counter.configure(text_color="black")  # Set the text color to black
 
     def show_info_screen(self):
         info_screen = tk.Toplevel(self.master)
@@ -222,7 +247,10 @@ Good luck!
         self.live_counter.configure(text=f"Live Count: Blue: {blue_count}, Red: {red_count}")
 
         # Check if either team has zero cells
+
         if blue_count == 0 or red_count == 0:
+            if self.generation_count <= 1:
+                return
             self.running = False
             self.display_winner()
 
@@ -338,13 +366,18 @@ Good luck!
 
 
 def main():
-    ctk.set_appearance_mode("System")  # Modes: "System" (default), "Dark", "Light"
+    ctk.set_appearance_mode("Light")  # Modes: "System" (default), "Dark", "Light"
     ctk.set_default_color_theme("blue")  # Themes: "blue" (default), "green", "dark-blue"
 
     root = ctk.CTk()
     root.title("Competitive Game of Life")
+
+    # Option to toggle fullscreen mode using F11
+    root.bind("<F11>", lambda event: root.attributes("-fullscreen", not root.attributes("-fullscreen")))
+
+    root.state('zoomed')
+
     GameOfLife(root, width=96, height=54)
     root.mainloop()
-
 
 main()
