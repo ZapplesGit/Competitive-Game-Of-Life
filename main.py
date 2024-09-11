@@ -4,6 +4,32 @@ import random
 from patterns import patterns  # Import patterns from patterns.py
 
 
+# Code to reset patterns.py on startup
+default_patterns = """# patterns.py
+
+patterns = {
+    "Spaceship": [(3, 0), (0, 0), (4, 1), (4, 2), (0, 2), (4, 3), (3, 3), (2, 3), (1, 3)],
+    "Glider": [(0, 1), (1, 2), (2, 0), (2, 1), (2, 2)],
+    "Pulsar": [(2, 0), (3, 0), (4, 0), (8, 0), (9, 0), (10, 0), (0, 2), (5, 2), (7, 2), (12, 2),
+               (0, 3), (5, 3), (7, 3), (12, 3), (0, 4), (5, 4), (7, 4), (12, 4), (2, 5), (3, 5),
+               (4, 5), (8, 5), (9, 5), (10, 5), (2, 7), (3, 7), (4, 7), (8, 7), (9, 7), (10, 7),
+               (0, 8), (5, 8), (7, 8), (12, 8), (0, 9), (5, 9), (7, 9), (12, 9), (0, 10), (5, 10),
+               (7, 10), (12, 10), (2, 12), (3, 12), (4, 12), (8, 12), (9, 12), (10, 12)],
+    "Gosper Glider Gun": [(24, 0), (22, 1), (24, 1), (12, 2), (13, 2), (20, 2), (21, 2), (34, 2),
+                          (35, 2), (11, 3), (15, 3), (20, 3), (21, 3), (34, 3), (35, 3), (0, 4),
+                          (1, 4), (10, 4), (16, 4), (20, 4), (21, 4), (0, 5), (1, 5), (10, 5), (14, 5),
+                          (16, 5), (17, 5), (22, 5), (24, 5), (10, 6), (16, 6), (24, 6), (11, 7), (15, 7),
+                          (12, 8), (13, 8)],
+    "Pentadecathlon": [(1, 0), (2, 0), (3, 0), (0, 1), (4, 1), (1, 2), (2, 2), (3, 2), (1, 3), (2, 3), (3, 3),
+                       (0, 4), (4, 4), (1, 5), (2, 5), (3, 5), (1, 6), (2, 6), (3, 6), (0, 7), (4, 7), (1, 8),
+                       (2, 8), (3, 8)],
+}
+"""
+
+with open("patterns.py", "w") as f:
+    f.write(default_patterns)
+
+
 class GameOfLife:
     def __init__(self, master, width, height, cell_size=16):
         self.previous_states = None
@@ -68,10 +94,93 @@ class GameOfLife:
         self.settings_menu.add_command(label="Toggle Theme", command=self.toggle_theme)
         self.menu_bar.add_cascade(label="Settings", menu=self.settings_menu)
 
+        self.save_pattern_button = ctk.CTkButton(master, text="Save Pattern", command=self.save_pattern)
+        self.save_pattern_button.pack(side=ctk.LEFT, padx=10, pady=10)
+
         master.configure(menu=self.menu_bar)
 
         # Show the information screen on startup
         self.show_info_screen()
+
+    # New function to save the current grid as a pattern
+    def save_pattern(self):
+        # Get the live cells in relative positions
+        pattern_name = self.prompt_for_pattern_name()
+        if not pattern_name:
+            return  # User canceled the action
+
+        relative_pattern = []
+        for (x, y), color in self.live_cells.items():
+            if color == "blue":  # Only saving blue cells
+                relative_pattern.append((x, y))
+
+        # Normalize the pattern to start from (0, 0)
+        if relative_pattern:
+            min_x = min(x for x, y in relative_pattern)
+            min_y = min(y for x, y in relative_pattern)
+            normalized_pattern = [(x - min_x, y - min_y) for x, y in relative_pattern]
+        else:
+            normalized_pattern = []
+
+        # Append the new pattern to patterns.py
+        self.append_pattern_to_file(pattern_name, normalized_pattern)
+
+        # Update the patterns menu
+        self.pattern_menu.add_command(label=pattern_name, command=lambda p=pattern_name: self.select_pattern(p))
+        patterns[pattern_name] = normalized_pattern  # Add the pattern to the in-memory dictionary
+
+    # Prompt user for pattern name
+    def prompt_for_pattern_name(self):
+        pattern_name_popup = tk.Toplevel(self.master)
+        pattern_name_popup.title("Save Pattern")
+        pattern_name_popup.geometry("300x225")
+
+        label = ctk.CTkLabel(pattern_name_popup, text="Enter pattern name:")
+        label.pack(pady=10)
+
+        entry = ctk.CTkEntry(pattern_name_popup)
+        entry.pack(pady=10)
+
+        pattern_name = tk.StringVar()
+
+        def on_submit():
+            pattern_name.set(entry.get())
+            pattern_name_popup.destroy()
+
+        submit_button = ctk.CTkButton(pattern_name_popup, text="Submit", command=on_submit)
+        submit_button.pack(pady=10)
+
+        pattern_name_popup.wait_window()  # Wait for the window to close
+
+        return pattern_name.get().strip()
+
+    # Function to append the pattern to patterns.py
+    def append_pattern_to_file(self, pattern_name, pattern_data):
+        patterns_file = 'patterns.py'
+
+        # Ensure the pattern name is valid
+        if not pattern_name.isidentifier():
+            print("Invalid pattern name. Pattern names must be valid Python identifiers.")
+            return
+
+        # Prepare the pattern string
+        pattern_str = f"    '{pattern_name}': {pattern_data},\n"
+
+        # Read the file
+        with open(patterns_file, 'r') as file:
+            content = file.readlines()
+
+        # Find where to insert the new pattern (before the closing brace)
+        for i in range(len(content)-1, -1, -1):
+            if content[i].strip() == "}":
+                content.insert(i, pattern_str)
+                break
+
+        # Write the file back with the new pattern
+        with open(patterns_file, 'w') as file:
+            file.writelines(content)
+
+        print(f"Pattern '{pattern_name}' saved to patterns.py.")
 
     # Toggle theme between Light and Dark
     def toggle_theme(self):
@@ -186,7 +295,7 @@ Good luck!
                 fill="black", width=2  # Thicker black line
             )
 
-    def update(self):
+    def update(self):  # Updates the grid according the Game of Life rules
         new_live_cells = {}
         neighbor_counts = {}
 
@@ -197,21 +306,19 @@ Good luck!
                         continue
                     nx, ny = (x + dx) % self.width, (y + dy) % self.height
                     if (nx, ny) not in neighbor_counts:
-                        neighbor_counts[(nx, ny)] = {"count": 0, "blue": 0, "red": 0}
+                        neighbor_counts[(nx, ny)] = {"count": 0, "blue": 0, "red": 0}  # Sets the cell count
                     neighbor_counts[(nx, ny)]["count"] += 1
                     if self.live_cells.get((x, y)) == "blue":
-                        neighbor_counts[(nx, ny)]["blue"] += 1
+                        neighbor_counts[(nx, ny)]["blue"] += 1  # Adds to the blue count
                     elif self.live_cells.get((x, y)) == "red":
-                        neighbor_counts[(nx, ny)]["red"] += 1
+                        neighbor_counts[(nx, ny)]["red"] += 1  # Adds to the red count
 
-        for (cell, data) in neighbor_counts.items():
+        for (cell, data) in neighbor_counts.items():  # Counts the number of neighbours
             if data["count"] == 3 or (data["count"] == 2 and cell in self.live_cells):
                 if data["blue"] > data["red"]:
-                    new_live_cells[cell] = "blue"
+                    new_live_cells[cell] = "blue"  # Turns the cell blue
                 elif data["red"] > data["blue"]:
-                    new_live_cells[cell] = "red"
-                else:
-                    new_live_cells[cell] = self.live_cells.get(cell, "blue")  # Default to existing color
+                    new_live_cells[cell] = "red"  # Turns the cell red
             else:
                 new_live_cells[cell] = None  # Cell dies
 
