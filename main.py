@@ -4,6 +4,9 @@ import random
 from patterns import patterns  # Import patterns from patterns.py
 
 
+# Constants
+pixel_size = 16
+
 # Code to reset patterns.py on startup
 default_patterns = """# patterns.py
 
@@ -31,7 +34,7 @@ with open("patterns.py", "w") as f:
 
 
 class GameOfLife:
-    def __init__(self, master, width, height, cell_size=16):
+    def __init__(self, master, width, height, cell_size=pixel_size):
         self.previous_states = None
         self.master = master
         self.width = width
@@ -66,7 +69,7 @@ class GameOfLife:
         self.random_button = ctk.CTkButton(master, text="Randomize", command=self.randomize_grid)
         self.random_button.pack(side=ctk.LEFT, padx=10, pady=10)
 
-        self.counter_frame = ctk.CTkFrame(master, width=220, height=30, fg_color="lightgray")  # Set initial color
+        self.counter_frame = ctk.CTkFrame(master, width=220, height=30, fg_color="lightgray")
         self.counter_frame.pack_propagate(False)
         self.counter_frame.pack(side=ctk.LEFT, pady=10)
 
@@ -122,12 +125,15 @@ class GameOfLife:
         else:
             normalized_pattern = []
 
-        # Append the new pattern to patterns.py
-        self.append_pattern_to_file(pattern_name, normalized_pattern)
+        # Try to append the new pattern to patterns.py
+        pattern_saved = self.append_pattern_to_file(pattern_name, normalized_pattern)
 
-        # Update the patterns menu
-        self.pattern_menu.add_command(label=pattern_name, command=lambda p=pattern_name: self.select_pattern(p))
-        patterns[pattern_name] = normalized_pattern  # Add the pattern to the in-memory dictionary
+        # Only update the patterns menu and in-memory dictionary if the pattern was successfully saved
+        if pattern_saved:
+            self.pattern_menu.add_command(label=pattern_name, command=lambda p=pattern_name: self.select_pattern(p))
+            patterns[pattern_name] = normalized_pattern  # Add the pattern to the in-memory dictionary
+        else:
+            print(f"Pattern '{pattern_name}' was not added to the menu or dictionary due to an error.")
 
     # Prompt user for pattern name
     def prompt_for_pattern_name(self):
@@ -137,10 +143,8 @@ class GameOfLife:
 
         label = ctk.CTkLabel(pattern_name_popup, text="Enter pattern name:")
         label.pack(pady=10)
-
         entry = ctk.CTkEntry(pattern_name_popup)
         entry.pack(pady=10)
-
         pattern_name = tk.StringVar()
 
         def on_submit():
@@ -158,36 +162,69 @@ class GameOfLife:
     def append_pattern_to_file(self, pattern_name, pattern_data):
         patterns_file = 'patterns.py'
 
+        # Introduce a success flag
+        is_valid = True
+
         # Ensure the pattern name is valid
         if not pattern_name.isidentifier():
-            print("Invalid pattern name. Pattern names must be valid Python identifiers.")
-            return
-
-        # Prepare the pattern string
-        pattern_str = f"    '{pattern_name}': {pattern_data},\n"
+            print("Pattern name is invalid, stopping.")
+            self.show_error_popup("Invalid pattern name", "Pattern names must not contain special characters.")
+            is_valid = False  # Set flag to False if the name is invalid
 
         # Read the file
         with open(patterns_file, 'r') as file:
             content = file.readlines()
 
-        # Find where to insert the new pattern (before the closing brace)
-        for i in range(len(content)-1, -1, -1):
-            if content[i].strip() == "}":
-                content.insert(i, pattern_str)
-                break
+        # Check if pattern name already exists in the file to prevent duplicates
+        if any(f"'{pattern_name}':" in line for line in content):
+            print("Pattern already exists, stopping.")
+            self.show_error_popup("Pattern name exists", "A pattern with this name already exists.")
+            is_valid = False  # Set flag to False if the pattern already exists
 
-        # Write the file back with the new pattern
-        with open(patterns_file, 'w') as file:
-            file.writelines(content)
+        # Only append and write to the file if is_valid is still True
+        if is_valid:
+            # Prepare the pattern string
+            pattern_str = f"    '{pattern_name}': {pattern_data},\n"
 
-        print(f"Pattern '{pattern_name}' saved to patterns.py.")
+            # Find where to insert the new pattern (before the closing brace)
+            for i in range(len(content)-1, -1, -1):
+                if content[i].strip() == "}":
+                    content.insert(i, pattern_str)
+                    break
+
+            # Write the file back with the new pattern
+            with open(patterns_file, 'w') as file:
+                file.writelines(content)
+
+            print(f"Pattern '{pattern_name}' saved to patterns.py.")
+            return True  # Return True to indicate successful saving
+        else:
+            print(f"Pattern '{pattern_name}' was not saved due to an error.")
+            return False  # Return False to indicate failure
+
+    # Function to show an error pop-up window
+    def show_error_popup(self, title, message):
+        error_popup = tk.Toplevel(self.master)
+        error_popup.title(title)
+        error_popup.geometry("300x150")
+
+        label = ctk.CTkLabel(error_popup, text=message, wraplength=250)
+        label.pack(pady=20)
+
+        close_button = ctk.CTkButton(error_popup, text="OK", command=error_popup.destroy)
+        close_button.pack(pady=10)
+
+        # Ensure the user interacts with this window first
+        error_popup.lift(self.master)
+        error_popup.focus_set()
+        error_popup.grab_set()
 
     # Toggle theme between Light and Dark
     def toggle_theme(self):
         if self.current_theme == "Light":
             ctk.set_appearance_mode("Dark")
             self.current_theme = "Dark"
-            self.canvas.configure(bg="gray")  # Set the grid background to gray
+            self.canvas.configure(bg="lightgray")  # Set the grid background to gray
             self.menu_bar.configure(bg="black", fg="black")  # Set the menu background to black
             self.counter_frame.configure(fg_color="black")  # Set the counter frame background to black
             self.live_counter.configure(text_color="white")  # Set the text color to white
@@ -198,6 +235,8 @@ class GameOfLife:
             self.menu_bar.configure(bg="white", fg="black")  # Set the menu background to white
             self.counter_frame.configure(fg_color="lightgray")  # Set the counter frame background to white
             self.live_counter.configure(text_color="black")  # Set the text color to black
+
+        self.draw_grid()
 
     def show_info_screen(self):
         info_screen = tk.Toplevel(self.master)
@@ -274,18 +313,27 @@ Good luck!
 
     def draw_grid(self):
         self.canvas.delete("all")
+
+        # Set grid line color based on the current theme
+        grid_line_color = "lightgray" if self.current_theme == "Light" else "gray"
+
         # Draw cells
         for (x, y), color in self.live_cells.items():
+            # Check if the color is red, and modify it for dark mode
+            if color == "red" and self.current_theme == "Dark":
+                color = "#ED0000"  # Use darker red in dark mode
+
             self.canvas.create_rectangle(
                 x * self.cell_size, y * self.cell_size,
                 (x + 1) * self.cell_size, (y + 1) * self.cell_size,
                 fill=color, outline="gray"
             )
+
         # Draw grid lines
         for x in range(0, self.width * self.cell_size, self.cell_size):
-            self.canvas.create_line(x, 0, x, self.height * self.cell_size, fill="lightgray")
+            self.canvas.create_line(x, 0, x, self.height * self.cell_size, fill=grid_line_color)
         for y in range(0, self.height * self.cell_size, self.cell_size):
-            self.canvas.create_line(0, y, self.width * self.cell_size, y, fill="lightgray")
+            self.canvas.create_line(0, y, self.width * self.cell_size, y, fill=grid_line_color)
 
         # Draw the middle line when the simulation is not running
         if not self.running:
