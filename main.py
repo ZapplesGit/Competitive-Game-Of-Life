@@ -6,6 +6,10 @@ from patterns import patterns  # Import patterns from patterns.py
 
 # Constants
 pixel_size = 16
+simulation_width = 96
+simulation_height = 54
+max_speed_wait = 1000
+
 
 # Code to reset patterns.py on startup
 default_patterns = """# patterns.py
@@ -77,7 +81,7 @@ class GameOfLife:
         self.live_counter.pack()
 
         self.speed_scale = ctk.CTkSlider(master, from_=1, to=1000, orientation=ctk.HORIZONTAL, number_of_steps=999)
-        self.speed_scale.set(1000)
+        self.speed_scale.set(max_speed_wait)
         self.speed_scale.pack(side=ctk.RIGHT, padx=50, pady=10)
         self.speed_scale_label = ctk.CTkLabel(master, text="Speed")
         self.speed_scale_label.pack(side=ctk.RIGHT, padx=10, pady=10)
@@ -95,6 +99,7 @@ class GameOfLife:
         # Settings menu
         self.settings_menu = tk.Menu(self.menu_bar, tearoff=0)
         self.settings_menu.add_command(label="Toggle Theme", command=self.toggle_theme)
+        self.settings_menu.add_command(label="Adjust Simulation Size", command=self.open_simulation_size_popup)
         self.menu_bar.add_cascade(label="Settings", menu=self.settings_menu)
 
         self.save_pattern_button = ctk.CTkButton(master, text="Save Pattern", command=self.save_pattern)
@@ -105,7 +110,71 @@ class GameOfLife:
         # Show the information screen on startup
         self.show_info_screen()
 
-    # New function to save the current grid as a pattern
+    # Function to open a pop-up with sliders to adjust simulation width and height
+    def open_simulation_size_popup(self):
+        size_popup = tk.Toplevel(self.master)
+        size_popup.title("Adjust Simulation Size")
+        size_popup.geometry("300x400")
+
+        # Label for simulation width
+        width_label = ctk.CTkLabel(size_popup, text="Simulation Width:")
+        width_label.pack(pady=10)
+
+        # Label to display the current width value
+        width_value_label = ctk.CTkLabel(size_popup, text=f"{self.width}")
+        width_value_label.pack(pady=5)
+
+        # Slider for simulation width
+        width_slider = ctk.CTkSlider(size_popup, from_=10, to=200, number_of_steps=190)
+        width_slider.set(self.width)  # Set current width as the default value
+        width_slider.pack(pady=10)
+
+        # Label for simulation height
+        height_label = ctk.CTkLabel(size_popup, text="Simulation Height:")
+        height_label.pack(pady=10)
+
+        # Label to display the current height value
+        height_value_label = ctk.CTkLabel(size_popup, text=f"{self.height}")
+        height_value_label.pack(pady=5)
+
+        # Slider for simulation height
+        height_slider = ctk.CTkSlider(size_popup, from_=10, to=100, number_of_steps=90)
+        height_slider.set(self.height)  # Set current height as the default value
+        height_slider.pack(pady=10)
+
+        # Function to update the label with the current slider value for width
+        def update_width_value(value):
+            width_value_label.config(text=f"{int(value)}")
+
+        # Function to update the label with the current slider value for height
+        def update_height_value(value):
+            height_value_label.config(text=f"{int(value)}")
+
+        # Bind the sliders to update the labels when moved
+        width_slider.configure(command=update_width_value)
+        height_slider.configure(command=update_height_value)
+
+        # Function to update simulation size
+        def update_simulation_size():
+            new_width = int(width_slider.get())
+            new_height = int(height_slider.get())
+
+            self.width = new_width
+            self.height = new_height
+
+            # Recreate the canvas with new dimensions
+            self.canvas.config(width=self.width * self.cell_size, height=self.height * self.cell_size)
+            self.initialize_grid()  # Reinitialize the grid with new dimensions
+            size_popup.destroy()
+
+        # Button to apply the changes
+        apply_button = ctk.CTkButton(size_popup, text="Apply", command=update_simulation_size)
+        apply_button.pack(pady=20)
+
+        size_popup.focus_set()
+        size_popup.grab_set()
+
+    # Saves the 'blue' side of the grid as a pattern
     def save_pattern(self):
         # Get the live cells in relative positions
         pattern_name = self.prompt_for_pattern_name()
@@ -148,8 +217,12 @@ class GameOfLife:
         pattern_name = tk.StringVar()
 
         def on_submit():
-            pattern_name.set(entry.get())
-            pattern_name_popup.destroy()
+            name = entry.get().strip()
+            if len(name) > 15:  # Check if the pattern name exceeds 15 characters
+                self.show_error_popup("Name too long", "Pattern names must not exceed 15 characters.")
+            else:
+                pattern_name.set(name)
+                pattern_name_popup.destroy()
 
         submit_button = ctk.CTkButton(pattern_name_popup, text="Submit", command=on_submit)
         submit_button.pack(pady=10)
@@ -162,17 +235,14 @@ class GameOfLife:
     def append_pattern_to_file(self, pattern_name, pattern_data):
         patterns_file = 'patterns.py'
 
-        # Introduce a success flag
-        is_valid = True
+        is_valid = True  # Introduce a success flag
 
-        # Ensure the pattern name is valid
-        if not pattern_name.isidentifier():
+        if not pattern_name.isidentifier():  # Ensure the pattern name is valid
             print("Pattern name is invalid, stopping.")
-            self.show_error_popup("Invalid pattern name", "Pattern names must not contain special characters.")
+            self.show_error_popup("Invalid pattern name", "Pattern names must not contain special characters, numbers or spaces.")
             is_valid = False  # Set flag to False if the name is invalid
 
-        # Read the file
-        with open(patterns_file, 'r') as file:
+        with open(patterns_file, 'r') as file:  # Read the file
             content = file.readlines()
 
         # Check if pattern name already exists in the file to prevent duplicates
@@ -199,14 +269,13 @@ class GameOfLife:
             print(f"Pattern '{pattern_name}' saved to patterns.py.")
             return True  # Return True to indicate successful saving
         else:
-            print(f"Pattern '{pattern_name}' was not saved due to an error.")
             return False  # Return False to indicate failure
 
     # Function to show an error pop-up window
     def show_error_popup(self, title, message):
         error_popup = tk.Toplevel(self.master)
         error_popup.title(title)
-        error_popup.geometry("300x150")
+        error_popup.geometry("350x150")
 
         label = ctk.CTkLabel(error_popup, text=message, wraplength=250)
         label.pack(pady=20)
@@ -241,7 +310,7 @@ class GameOfLife:
     def show_info_screen(self):
         info_screen = tk.Toplevel(self.master)
         info_screen.title("Welcome to Competitive Game of Life")
-        info_screen.geometry("530x450")
+        info_screen.geometry("530x530")
         info_screen.resizable(False, False)
 
         # Center the info screen
@@ -259,6 +328,11 @@ How to play:
 - Drag left-click: Paint cells.
 - Right-click: Place a selected pattern.
 - Space bar: Start/Stop the simulation.
+
+How to create a custom pattern:
+- Draw anything on the BLUE side of the simulation.
+- Select 'Save Pattern'.
+- Assign it a name.
 
 Objective:
 - Compete to dominate the board with your color.
@@ -390,7 +464,7 @@ Good luck!
         self.draw_grid()
         self.update_live_counter()
 
-        inverted_speed = int(1001 - self.speed_scale.get())  # Inverts the speed slider
+        inverted_speed = int(max_speed_wait + 1 - self.speed_scale.get())  # Inverts the speed slider
 
         if self.running:
             self.master.after(inverted_speed, self.update)
@@ -459,7 +533,7 @@ Good luck!
         if self.running:
             self.update()
 
-    def clear_grid(self):
+    def clear_grid(self):  # Clears the grid, when the button is pressed
         self.running = False
         self.live_cells = {}
         self.previous_states = set()
@@ -467,10 +541,10 @@ Good luck!
         self.draw_grid()
         self.update_live_counter()
 
-    def randomize_grid(self):
+    def randomize_grid(self):  # Randomises the grid, when the button is pressed
         self.initialize_grid()
 
-    def toggle_cell(self, event):
+    def toggle_cell(self, event):  # Changes the state of a pixel on a click
         x = event.x // self.cell_size
         y = event.y // self.cell_size
         if (x, y) in self.live_cells:
@@ -483,7 +557,7 @@ Good luck!
         self.draw_grid()
         self.update_live_counter()
 
-    def paint_cell(self, event):
+    def paint_cell(self, event):  # Changes the states of pixels when the mouse is held and moving
         x = event.x // self.cell_size
         y = event.y // self.cell_size
         self.live_cells[(x, y)] = "blue" if x < self.width // 2 else "red"
@@ -531,7 +605,7 @@ def main():
 
     root.after(0, lambda: root.state('zoomed'))
 
-    GameOfLife(root, width=96, height=54)
+    GameOfLife(root, width=simulation_width, height=simulation_height)
     root.mainloop()
 
 
