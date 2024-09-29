@@ -9,6 +9,7 @@ pixel_size = 16
 simulation_width = 96
 simulation_height = 54
 max_speed_wait = 1000
+file_name = "patterns.py"
 
 
 # Code to reset patterns.py on startup
@@ -33,7 +34,7 @@ patterns = {
 }
 """
 
-with open("patterns.py", "w") as f:
+with open(file_name, "w") as f:
     f.write(default_patterns)
 
 
@@ -144,11 +145,11 @@ class GameOfLife:
 
         # Function to update the label with the current slider value for width
         def update_width_value(value):
-            width_value_label.config(text=f"{int(value)}")
+            width_value_label.configure(text=f"{int(value)}")
 
         # Function to update the label with the current slider value for height
         def update_height_value(value):
-            height_value_label.config(text=f"{int(value)}")
+            height_value_label.configure(text=f"{int(value)}")
 
         # Bind the sliders to update the labels when moved
         width_slider.configure(command=update_width_value)
@@ -163,7 +164,7 @@ class GameOfLife:
             self.height = new_height
 
             # Recreate the canvas with new dimensions
-            self.canvas.config(width=self.width * self.cell_size, height=self.height * self.cell_size)
+            self.canvas.configure(width=self.width * self.cell_size, height=self.height * self.cell_size)
             self.initialize_grid()  # Reinitialize the grid with new dimensions
             size_popup.destroy()
 
@@ -233,7 +234,7 @@ class GameOfLife:
 
     # Function to append the pattern to patterns.py
     def append_pattern_to_file(self, pattern_name, pattern_data):
-        patterns_file = 'patterns.py'
+        patterns_file = file_name
 
         is_valid = True  # Introduce a success flag
 
